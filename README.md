@@ -5,6 +5,7 @@ because more than one app referenced it.
 The origianl code had the following stucture:
 
    workroot\projectname\work
+
    workroot\common\work
 
   So in the project the common class was referenced by adding "../../common/work" in the include configuration.
