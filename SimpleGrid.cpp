@@ -25,10 +25,9 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
-static TCHAR THIS_FILE[] = _T(__FILE__);
+//static TCHAR THIS_FILE[] = _T(__FILE__);
+const char THIS_FILE[] = __FILE__;
 #endif
-
-#define DEBUG_NEW new
 
 BEGIN_MESSAGE_MAP(CSimpleGrid, CWnd)
 	//{{AFX_MSG_MAP(CSimpleGrid)

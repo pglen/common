@@ -189,7 +189,7 @@ COLORREF CMisc::modcolor(COLORREF bcol, int mm, int dd)
 /// Return type:      DWORD  
 /// \n \n 
 /// \param pszW Arg Type: LPWSTR Pointer to the UNICODE str to convert from
-/// \param ppszA Arg Type: LPSTR* ptr to a buffer toi receve results
+/// \param ppszA Arg Type: LPSTR* ptr to a buffer to receive the results
 
 DWORD   CMisc::UnicodeToAnsi(LPCWSTR pszW, LPSTR* ppszA)
 

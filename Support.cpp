@@ -679,32 +679,35 @@ BOOL	CSupport::GetSpecialFolder(UINT SpecialFolder, CString &SpecialFolderString
 
 {
 	HRESULT hr;
-
 	LPITEMIDLIST pidl;
+	TCHAR szPath[_MAX_PATH];
 
 	hr = SHGetSpecialFolderLocation(NULL, SpecialFolder, &pidl);
 
     if(SUCCEEDED(hr))
 		{
 		// Convert the item ID list's binary representation into a file system path
-		TCHAR szPath[_MAX_PATH];
-
+		
 		if(SHGetPathFromIDList(pidl, szPath))
 			{
 			// Allocate a pointer to an IMalloc interface
-			LPMALLOC pMalloc;
+			//LPMALLOC pMalloc;
 
 			// Get the address of our task allocator's IMalloc interface
-			hr = SHGetMalloc(&pMalloc);
+			//hr = SHGetMalloc(&pMalloc);
 
 			// Free the item ID list allocated by SHGetSpecialFolderLocation
-			pMalloc->Free(pidl);
+			//pMalloc->Free(pidl);
 
 			// Free our task allocator
-			pMalloc->Release();
+			//pMalloc->Release();
+
+			//ILFree(pidl);
+			CoTaskMemFree(pidl);
 
 			// Work with the special folder's path (contained in szPath)
 			SpecialFolderString = szPath;	SpecialFolderString += "\\";
+
 			return TRUE;
 			}
 		}
@@ -941,7 +944,8 @@ void	CSupport::Help()
 	str =  approot + _T("umanual\\") + file;
 #endif
 
-	ShellExecute(NULL, _T("open"), str, NULL, NULL, SW_SHOWMAXIMIZED);
+	int ret = (int) ShellExecute(NULL, _T("open"), str, NULL, NULL, SW_SHOWMAXIMIZED);
+	P2N(_T("Shellexec returned with %d\r\n"), ret);
 }
 
 //////////////////////////////////////////////////////////////////////////

@@ -374,7 +374,7 @@ void     MxPad::ClearNotepad()
 		SendStr(TEXT("##Clear##\r\n"));
 		}
 	
-	if(local)
+	//if(local)
 		{
 		 if((chld = _GetChild(FindWindow((LPCTSTR)appname, NULL)) ))
 			{

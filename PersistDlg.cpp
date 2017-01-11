@@ -24,10 +24,11 @@
 #include "mxpad.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
 #undef THIS_FILE
 static TCHAR THIS_FILE[] = _T(__FILE__);
+#define new DEBUG_NEW
 #endif
+
 
 // Static members for the Persist class
 

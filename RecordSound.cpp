@@ -36,10 +36,9 @@
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #undef THIS_FILE
-static TCHAR THIS_FILE[] = _T(__FILE__);
+//static TCHAR THIS_FILE[] = _T(__FILE__);
+static const char THIS_FILE[] = __FILE__;
 #endif
-
-#define DEBUG_NEW new
 
 //////////////////////////////////////////////////////////////////////////
 // Called from the sound driver to do our bidding. must free buffer

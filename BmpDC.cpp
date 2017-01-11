@@ -23,7 +23,9 @@
 #ifdef _DEBUG
 #undef THIS_FILE
 static TCHAR THIS_FILE[]=_T(__FILE__);
-#define new DEBUG_NEW
+//#define new DEBUG_NEW
+#undef DEBUG_NEW
+#define DEBUG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
 #endif
 
 //////////////////////////////////////////////////////////////////////

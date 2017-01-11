@@ -2,20 +2,23 @@
 /* =====[ bluepoint.cpp ]========================================================== 
                                                                              
    Description:     The CryptoSticky project, implementation of the bluepoint.cpp                
-                                                                             
-                    Defines the behavior for the application.          
-                                                                             
-   Compiled:        MS-VC 6.00                                               
+                                                                                                                                                          
+   Compiled:        MS-VC 6.00, MSVS 2015                                            
                                                                              
    Notes:           <Empty Notes>                                            
                                                                              
    Revisions:                                                                
                                                                              
       REV     DATE        BY            DESCRIPTION                       
-      ----  --------  -----------  ----------------------------   
-      0.00  6/17/2010  Peter Glen   Initial version.                         
-                                                                             
+      ----  --------     -----------  ----------------------------   
+	  0.00  6/17/2010	 Peter Glen   Initial version.
+	  0.00  dec/27/2016  Peter Glen   Reworked for UNICODE MBCS W10
+	  
    ======================================================================= */
+
+// Changes:
+// 08-Apr-2008 Adapted to visual C++
+// 10-Apr-2008 Defence for longer passwords
 
 // -------------------------------------------------------------------------
 // Bluepoint encryption routines.
@@ -53,59 +56,29 @@
 //
 // -------------------------------------------------------------------------
 //
-// How to use:
+// How to use in C++:
+//	CString str("original"), pass("pass");
+//  bluepoint.encrypt(str, pass);
+//  bluepoint.decrypt(str, pass);
 //
+// OR:
 //  bluepoint_encrypt($orig, $pass);                -- encrypted in place
 //  bluepoint_decrypt($cypher, $pass);              -- decrypted in place
 //  $hash       = bluepoint_hash($orig, $pass);
 //  $crypthash  = bluepoint_crypthash($orig, $pass);
 //
-// The reference implementation for version 1.0 contains a (default) sample
-// clear text and a sample cypher text.
 // Porting is correct if the new cypher text is a duplicate of the following:
 //
+//#CRYPT#
+//a265 e400 6e4d 5f5b 9c47 8b37 d744 29db ef45 bd5a 26e8 4300 a7b1 cdbf 8e7a 09a6
+//5606 3116 5e70 b9c2 e21e 976b 3753 294f ddc8 1281  8145938e
+//#XCRYPT#
+//
 // orignal='abcdefghijklmnopqrstuvwxyz' pass='1234'
-// ENCRYPTED:
-// -2b-e4-5c-46-75-9e-05-c3-74-d4-35-76-5b-84-10-f8-b7-7e-f4-07-0a-37-50-07-69-3d
-// END ENCRYPTED
-// decrypted='abcdefghijklmnopqrstuvwxyz'
-// HASH:
-// -754656719 0xd304da31
-// CRYPTHASH:
-// -1382909316 0xad927a7c
+// The CString class stays 8 bit clean (nul characters) if you release buffers 
+// with explicit length arguments. [ Like: str.ReleaseBuffer(length)]
 //
-///////////////////////////////////////////////////////////////////////////
-// At this point PERL and C implementations exist, here is a session dump:
-//
-// ant:/srv/www/archive/bluepoint/bluepoint3 # make; ./test_blue
-// make: `test_blue' is up to date.
-// orignal='abcdefghijklmnopqrstuvwxyz' pass='1234'
-// ENCRYPTED:
-// -2b-e4-5c-46-75-9e-05-c3-74-d4-35-76-5b-84-10-f8-b7-7e-f4-07-0a-37-50-07-69-3d
-// END ENCRYPTED
-// decrypted='abcdefghijklmnopqrstuvwxyz'
-// HASH:
-// -754656719 0xd304da31
-// CRYPTHASH:
-// -1382909316 0xad927a7c
-//
-// ant:/srv/www/archive/bluepoint/bluepoint3 # perl test_blue.pl
-// original='abcdefghijklmnopqrstuvwxyz'  pass='1234'
-// ENCRYPTED:
-// -2b-e4-5c-46-75-9e-05-c3-74-d4-35-76-5b-84-10-f8-b7-7e-f4-07-0a-37-50-07-69-3d
-// END ENCRYPTED
-// decrypted='abcdefghijklmnopqrstuvwxyz'
-// HASH:
-// -754656719  0xd304da31
-// CryptHASH:
-// -1382909316  0xad927a7c
-//
-///////////////////////////////////////////////////////////////////////////
-// History:
 
-// 08-Apr-2008 Adapted to visual C++
-// 10-Apr-2008 Defence for longer passwords
-//
 ///////////////////////////////////////////////////////////////////////////
 
 #include "stdafx.h"
@@ -119,12 +92,16 @@
 
 //////////////////////////////////////////////////////////////////////////
 
-CBluePoint bluepoint;
+// The crypt delimeters have hex chars in them 'C'
 
+CString CBluePoint::pre = _T("#CRYPT#\r\n");
+CString CBluePoint::post = _T("\r\n#XCRYPT#");
+
+CBluePoint bluepoint;
 
 //////////////////////////////////////////////////////////////////////////
 
-CBluePoint::CBluePoint()
+xCBluePoint::xCBluePoint()
 
 {
 	vector		= "crypt";			//# influence encryption algorythm
@@ -136,14 +113,58 @@ CBluePoint::CBluePoint()
 	//# -------------------------------------------------------------------------
 	//# These vars can be set show op details
 
-	verbose    = 0;                    //# Specify this to show working details
-	functrace  = 0;                    //# Specify this to show function args
+	verbose		= 0;				//# Specify this to show working details
+	functrace	= 0;				//# Specify this to show function args
+	debug		= 0;				//# Specify this to show P2Ns for test
+}
+
+void    CBluePoint::encrypt(CString &str, const CString &pass)
+{
+	TCHAR *buff = str.GetBuffer(); int len = str.GetLength(); 
+	const TCHAR *pbuff = pass; int plen = pass.GetLength();
+	int mult = sizeof(TCHAR);
+	xCBluePoint::encrypt((char*)buff, len * mult, (const char*)pbuff, plen * mult);
+	//TCHAR *buff3 = (TCHAR*)malloc(len * mult);
+	//memcpy(buff3, buff, len * mult);
+	str.ReleaseBuffer(len);
+
+	//TCHAR *buff2 = str.GetBuffer();
+	//int ret = memcmp(buff2, buff3, len * mult);
+	//P2N(_T("memcmp %d.\r\n"), ret);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Encrypt text, hash it , package it between delimiters.
+
+void    CBluePoint::encrypthex(CString &str, const CString &pass)
+
+{
+	if (debug)
+	{
+		P2N(_T("org:\r\n"));
+		const TCHAR *buff = str;
+		bluepoint_dumphex((const char*)buff, str.GetLength() * sizeof(TCHAR));
+	}
+
+	CString fff, hex;
+	ulong hhh = crypthash(str, pass); //CString("a"));
+	fff.Format(_T(" %08x "), hhh);	
+	//encrypt(str, pass);
+	if (debug)
+	{
+		P2N(_T("enc:\r\n"));
+		const TCHAR *buff = str;
+		bluepoint_dumphex((const char*)buff, str.GetLength() * sizeof(TCHAR));
+	}
+	tohexW(str, hex, 16);
+	str = CBluePoint::pre + hex + fff + CBluePoint::post;
+	killpass(hex);
 }
 
 //# -------------------------------------------------------------------------
 //# Use: encrypt($str, $password);
 
-void    CBluePoint::encrypt(char *buff, int blen, const char *pass, int plen)
+void    xCBluePoint::encrypt(char *buff, int blen, const char *pass, int plen)
 
 {
     char newpass[4 * PASSLIM];
@@ -155,19 +176,108 @@ void    CBluePoint::encrypt(char *buff, int blen, const char *pass, int plen)
 
    if(functrace)
        {
-       printf("bluepoint_encrypt\nbuff=%s\n", bluepoint_dumphex(buff, blen));
-       printf("pass=%s\n", bluepoint_dumphex(pass, plen) );
+       //printf("bluepoint_encrypt\nbuff=%s\n", bluepoint_dumphex(buff, blen));
+       //printf("pass=%s\n", bluepoint_dumphex(pass, plen) );
        }
 
     prep_pass(pass, plen, newpass);
-
     do_encrypt(buff, blen, newpass, PASSLIM);
+
+	for(int loop = 0; loop < PASSLIM; loop++)
+		newpass[loop] = char(rand() % 255);
+}
+
+void    CBluePoint::decrypt(CString &str, const CString &pass)
+{
+	int mult = sizeof(TCHAR);
+	TCHAR *buff = str.GetBuffer(); int len = str.GetLength();
+	const TCHAR *pbuff = pass; int plen = pass.GetLength();
+	xCBluePoint::decrypt((char*)buff, len * mult, (const char*)pbuff, plen * mult);
+	str.ReleaseBuffer(len);
+}
+
+// xxxxxxxxxxxx#CRYPT#_________ hhhhhhhh #XCRYPT#xxxxxxxxxxx
+//                    idx       idx4     idx3     idx2
+
+int    CBluePoint::decrypthex(CString &str, const CString &pass)
+{
+	int idx = str.Find(CBluePoint::pre);
+	if (idx < 0)
+	{
+		P2N(_T("No header found.\r\n"));
+		return CRYPT_NOHEAD;
+	}
+	idx += CBluePoint::pre.GetLength();
+	int idx2 = str.Find(CBluePoint::post);
+	if (idx2 < 0)
+		{
+		P2N(_T("No trailer found.\r\n"));
+		return CRYPT_NOTAIL;
+		}
+	// Both begin and end found, walk to digit
+	int idx4 = idx2, idx3 = idx2;
+	while (true) 
+		{
+		if (idx3 <= idx) break;
+		TCHAR chh = str.GetAt(idx3);
+		if (isxdigit(chh)) { idx4 = idx3 + 1; break; }
+		idx3--;
+		}
+	// Walk back to non digit
+	while (true)
+		{
+		if (idx3 <= idx) break;
+		TCHAR chh = str.GetAt(idx3);
+		if (!isxdigit(chh)) { idx3++; break; } // Point to first
+		idx3--;
+		}
+	//P2N(_T("idx4=%d idx3=%d\r\n"), idx4, idx3);
+	
+	int len3 = idx3 - idx;
+	if (len3 <= 0)
+		{
+		P2N(_T("Nothing to decrypt.\r\n"));
+		return CRYPT_EMPTY;
+		}
+	int hlen = idx4 - idx3;
+	CString hstr = str.Mid(idx3, hlen);
+	ulong hhh =  _tcstoul(hstr, NULL, 16);
+	if (verbose)
+	{
+		P2N(_T("Hash '%s' %x\r\n"), hstr, hhh);
+	}
+	CString uhex, hex2 = str.Mid(idx, len3);
+	fromhexW(hex2, uhex);
+	if (debug)
+	{
+		//P2N(_T("Hash '%s' %x\r\n"), hstr, hhh);
+		//P2N(_T("Decr len=%d ulen=%d\r\n"), len3, hex2.GetLength());
+		const TCHAR *buff = uhex;
+		bluepoint_dumphex((const char*)buff, uhex.GetLength() * sizeof(TCHAR));
+	}
+	//decrypt(uhex, pass);
+	ulong ccc = crypthash(uhex, pass); //CString("a"));
+	if (verbose)
+	{
+		P2N(_T("Check org=%x new=%x\r\n"), hhh, ccc);
+	}
+	if (ccc != hhh)
+		{
+		P2N(_T("Bad pass.\r\n"));
+		killpass(uhex);		
+		return CRYPT_BADPASS;
+		}
+	// Got it, commit
+	str = uhex;		
+	killpass(uhex);
+	
+	return CRYPT_OK;
 }
 
 //# -------------------------------------------------------------------------
 //# Use: bluepoint_decrypt($str, $password);
 
-void    CBluePoint::decrypt(char *buff, int blen, const char *pass, int plen)
+void    xCBluePoint::decrypt(char *buff, int blen, const char *pass, int plen)
 
 {
     char newpass[4 * PASSLIM];
@@ -179,19 +289,38 @@ void    CBluePoint::decrypt(char *buff, int blen, const char *pass, int plen)
 
     if(functrace)
         {
-        printf("bluepoint_decrypt()\nbuff=%s\n", bluepoint_dumphex(buff, blen));
-        printf("pass=%s\n", bluepoint_dumphex(pass, plen) );
+        //printf("bluepoint_decrypt()\nbuff=%s\n", bluepoint_dumphex(buff, blen));
+        //printf("pass=%s\n", bluepoint_dumphex(pass, plen) );
         }
 
     prep_pass(pass, plen, newpass);
 
     do_decrypt(buff, blen, newpass, PASSLIM);
+
+	for (int loop = 0; loop < PASSLIM; loop++)
+		newpass[loop] = char(rand() % 255);
+}
+
+//////////////////////////////////////////////////////////////////////////
+// Destroy pass
+
+void    CBluePoint::killpass(CString &str)
+{
+	CString strp; int len = str.GetLength();
+	
+	for (int loop = 0; loop < len; loop++)
+		{
+		//strp += TCHAR(rand() % ('z' - 'a') + 'a');
+		// Make it look like more of a random string
+		strp += TCHAR(rand() % 255);
+	}
+	str = strp;
 }
 
 ///////////////////////////////////////////////////////////////////////////
 // Prepare pass
 
-void    CBluePoint::prep_pass(const char *pass, int plen, char *newpass)
+void    xCBluePoint::prep_pass(const char *pass, int plen, char *newpass)
 
 {
     int loop;
@@ -225,22 +354,25 @@ void    CBluePoint::prep_pass(const char *pass, int plen, char *newpass)
 
 	//TRACE("newpass '%s'\r\n", newpass);
 
-    if(verbose)
-        printf("prep_pass() newpass: %s\n", newpass);
+	if (verbose)
+	{
+		//P2N(_T("prep_pass() newpass: %s\n"), newpass);
+	}
+        
 
 #ifndef NOPASSCRYPT
-    CBluePoint::do_encrypt(vec2, vlen, vector, vlen);
+    xCBluePoint::do_encrypt(vec2, vlen, vector, vlen);
 #endif
 
     if(verbose)
         {
-        printf("prep_pass() eVEC: ");
-        bluepoint_dumphex(vec2, vlen);
-        printf("\n");
+		//P2N(_T("prep_pass() eVEC: "));
+        //bluepoint_dumphex(vec2, vlen);
+		//P2N(_T("\r\n"));
         }
 
 #ifndef NOPASSCRYPT
-    CBluePoint::do_encrypt(newpass, PASSLIM, vec2, vlen);
+    xCBluePoint::do_encrypt(newpass, PASSLIM, vec2, vlen);
 #endif
 
 	//char  out[2 * PASSLIM + 1];
@@ -257,6 +389,14 @@ void    CBluePoint::prep_pass(const char *pass, int plen, char *newpass)
 	//TRACE("newpass: '%s'", out);
 }
 
+ulong   CBluePoint::hash(const CString &str)
+
+{
+	const TCHAR *buff = str; int len = str.GetLength();
+	ulong ret = xCBluePoint::hash((const char *)buff, len * sizeof(TCHAR));
+	return ret;
+}
+
 //# -------------------------------------------------------------------------
 //# Hash:
 //# use: hashvalue = hash($str)
@@ -267,10 +407,10 @@ void    CBluePoint::prep_pass(const char *pass, int plen, char *newpass)
 //#   ret_val  = ROTATE_LONG_RIGHT(ret_val, 10);          /* rotate right */sub hash
 //#
 
-ulong   CBluePoint::hash(const char *buff, int blen)
+ulong   xCBluePoint::hash(const char *buff, int blen)
 
 {
-    unsigned long    sum = 0;
+    unsigned long    sum = 0xabcdef;
     int     loop;
     //char    aa, aa2, aa3;
 
@@ -278,16 +418,29 @@ ulong   CBluePoint::hash(const char *buff, int blen)
         {
         sum ^= (unsigned char)buff[loop];
         sum = ROTATE_LONG_RIGHT(sum, 10);          /* rotate right */
-        }
+		sum ^= (unsigned char)buff[loop];
+	}
 
     return sum;
 }
+
+ulong   CBluePoint::crypthash(const CString &str, const CString &pass)
+
+{
+	int mult = sizeof(TCHAR);
+	const TCHAR *buff = str; int len = str.GetLength();
+	const TCHAR *pbuff = pass; int plen = pass.GetLength();
+	ulong sum = xCBluePoint::crypthash(
+			(const char*)buff, len * mult, (const char*)pbuff, plen * mult);
+	return sum;
+}
+
 
 //# -------------------------------------------------------------------------
 //# Crypt and hash:
 //# use: crypthash = bluepoint_crypthash($str, "pass")
 
-ulong   CBluePoint::crypthash(const char *buff, int blen, char *pass, int plen)
+ulong   xCBluePoint::crypthash(const char *buff, int blen, const char *pass, int plen)
 
 {
     unsigned long    sum = 0;
@@ -299,10 +452,13 @@ ulong   CBluePoint::crypthash(const char *buff, int blen, char *pass, int plen)
         return(0L);
         }
     memcpy(duplicate, buff, blen);
-
     encrypt(duplicate, blen, pass, plen);
     sum = hash(duplicate, blen);
-
+	// Kill duplicate, so no piring eyes
+	for (int loop = 0; loop < blen; loop++)
+		{
+		duplicate[loop] = char(rand() % 255);
+		}
     free(duplicate);
     return(sum);
 }
@@ -310,7 +466,7 @@ ulong   CBluePoint::crypthash(const char *buff, int blen, char *pass, int plen)
 //# -------------------------------------------------------------------------
 //# The following routines are internal to this module:
 
-void    CBluePoint::do_encrypt(char *str, int slen, char *pass, int plen)
+void    xCBluePoint::do_encrypt(char *str, int slen, char *pass, int plen)
 
 {
     int loop, loop2 = 0;
@@ -318,8 +474,8 @@ void    CBluePoint::do_encrypt(char *str, int slen, char *pass, int plen)
 
     if(verbose)
         {
-        printf( "encrypt str='%s' len=%d pass='%s' plen=%d\n",
-                 str, slen, pass, plen);
+		//P2N(_T( "encrypt str='%s' len=%d pass='%s' plen=%d\n"),
+        //         str, slen, pass, plen);
         }
 
     //# Pass loop  (encrypt)
@@ -373,7 +529,7 @@ void    CBluePoint::do_encrypt(char *str, int slen, char *pass, int plen)
 //# -------------------------------------------------------------------------
 //# Internal to this module:
 
-void    CBluePoint::do_decrypt(char *str, int slen, char *pass, int plen)
+void    xCBluePoint::do_decrypt(char *str, int slen, char *pass, int plen)
 
 {
     int loop, loop2 = 0;
@@ -381,8 +537,8 @@ void    CBluePoint::do_decrypt(char *str, int slen, char *pass, int plen)
 
     if(verbose)
         {
-        printf( "decrypt(inp) str=%s len=%d pass=%s plen=%d\n",
-                  str, slen, pass, plen);
+		//P2N(_T( "decrypt(inp) str=%s len=%d pass=%s plen=%d\n"),
+        //          str, slen, pass, plen);
         }
 
     //# Forward loop (decrypt)
@@ -438,22 +594,24 @@ void    CBluePoint::do_decrypt(char *str, int slen, char *pass, int plen)
 
 #ifdef DEF_DUMPHEX
 
-char buff[256];
+static char buff[256];
 
-char    *CBluePoint::bluepoint_dumphex(const char *str, int len)
+char    *xCBluePoint::bluepoint_dumphex(const char *str, int len)
 
 {
     buff[0] = 0;
 
     int loop = 0, pos = 0;
-    for (loop = 0; loop < len; loop++)
+    for (loop = 0; loop < len; loop += 2)
         {
-        pos += sprintf(buff + pos, "-%02x", ( unsigned char)str[loop]);
+		//pos += sprintf(buff + pos, "-%02x", (unsigned char)str[loop]);
+		P2N(_T(" %02x-%02x"), (unsigned char)str[loop+1], (unsigned char)str[loop]);
 
         if(pos >= sizeof(buff) - 8)
             break;
         }
 
+	P2N(_T("\r\n"));
     return(buff);
 }
 
@@ -463,9 +621,13 @@ char    *CBluePoint::bluepoint_dumphex(const char *str, int len)
 // convert binary str to hex string
 //# char    *bluepoint_tohex(char *str, int len, char *out, int *len)
 
-char    *CBluePoint::tohex(const char *str, int len, char *out, int *olen, int llen)
+char    *xCBluePoint::tohex(const char *str, int len, char *out, int *olen, int llen)
 
 {
+//#ifdef UNICODE
+//#error "Call tohexW from unicode"
+//#endif
+
     int loop = 0, wlen = 0, pos = 0, rlen = 8; 
 	//rand() % 5 + 4;
 
@@ -498,12 +660,64 @@ char    *CBluePoint::tohex(const char *str, int len, char *out, int *olen, int l
     return(out);
 }
 
+// Convert to hex string
+//
+
+void	CBluePoint::tohexW(const CString &str, CString &out, int linelen)
+{
+	
+	const TCHAR *buff = str; int len = str.GetLength();
+	int olen = len * 6;
+	TCHAR *hbuff = out.GetBufferSetLength(olen);
+	xCBluePoint::tohexW(buff, len, hbuff, &olen, linelen);
+	out.ReleaseBuffer(olen);	
+}
+
+TCHAR    *xCBluePoint::tohexW(const TCHAR *str, int len, TCHAR *out, int *olen, int llen)
+
+{
+	int loop = 0, wlen = 0, pos = 0, rlen = 8;
+	
+	for (loop = 0; loop < len; loop++)
+	{
+		int ppp = _stprintf(out + pos, _T("%04x "), (unsigned short)str[loop]);
+		pos += ppp; wlen += ppp;
+		//P2N(_T("%c ppp %d\r\n"), str[loop], ppp);
+
+		if (pos >= *olen - 5)
+			break;
+
+		if (llen && loop)
+		{
+			// Output new lines
+			if ((loop) % llen == llen - 1)
+			{
+				int ppp2 = _stprintf(out + pos, _T("\r\n"));
+				//P2N(_T("ppp2 %d\r\n"), ppp2);
+				pos += ppp2;
+				wlen = 0;
+			}
+			// Output spaces
+			//if (wlen % rlen == 0 && wlen)
+			//{
+			//	pos += _stprintf(out + pos, _T(" "));
+			//	wlen = 0;				
+			//}
+		}
+	}
+
+	out[pos] = 0; 	// It aborted for just enough space to zero terminate
+	*olen = pos;
+
+	return(out);
+}
+
 //# -------------------------------------------------------------------------
-// convert hex string to binary str
+// Convert hex string to binary str
 //# char    *bluepoint_fromhex(char *str, int len, char *out, int *len)
 // isalnum
 
-char    *CBluePoint::fromhex(const char *str, int len, char *out, int *olen)
+char    *xCBluePoint::fromhex(const char *str, int len, char *out, int *olen)
 
 {
     unsigned char *str2 = (unsigned char *)str;
@@ -513,7 +727,7 @@ char    *CBluePoint::fromhex(const char *str, int len, char *out, int *olen)
     int loop = 0, pos = 0;
     for (loop = 0; loop < len; loop += 2)
         {
-        long vv;
+        ulong vv;
 		
 		// Immunity from non hex digits
 		while(true)
@@ -556,4 +770,66 @@ char    *CBluePoint::fromhex(const char *str, int len, char *out, int *olen)
 
     *olen = pos;
     return(out);
+}
+
+void	CBluePoint::fromhexW(const CString &hex, CString &uhex)
+
+{
+	//CString uhex;
+	int len = hex.GetLength();	int olen2 = len + 20;
+	const TCHAR *hbuff = hex;
+	TCHAR *uhbuff = uhex.GetBufferSetLength(olen2);
+
+	xCBluePoint::fromhexW(hbuff, len, uhbuff, &olen2);
+	uhex.ReleaseBuffer(olen2);
+}
+
+// Immunity from non hex digits 
+
+TCHAR    *xCBluePoint::fromhexW(const TCHAR *str, int len, TCHAR *out, int *olen)
+
+{
+	int loop = 0, pos = 0;
+	
+	while(true)
+	{
+		TCHAR chh[5]; chh[4] = 0;
+		if (loop > len)				// EOS
+			break;
+
+		// Find four consecutive digits
+		int loop2 = 0, loop3 = 0;
+		while (true)				// Level 1
+		{
+			if (loop2 + loop > len)  // EOS
+				break;
+			// Got four digits, make a character
+			if (loop3 >= 4)
+			{
+				//P2N(_T("Expanding %s\r\n"), chh);
+				ulong vv = _tcstoul(chh, NULL, 16);
+				out[pos++] = (TCHAR)vv;				
+				loop += (loop2 - 1);
+				break;
+			}
+			TCHAR ccc = *(str + loop + loop2);
+			//P2N(_T("Digit '%c' %d %d \r\n"), ccc, loop, loop2);
+			// Got a hex digit? Yep, add; else: ignore
+			if (_istxdigit(ccc))
+				{
+				chh[loop3] = ccc;
+				loop3++;
+				}
+			
+			loop2++;
+		}
+	loop++;
+
+	// Overflow at the end
+	if (pos > *olen - 3)
+		break;
+	}
+	out[pos] = 0;		// It aborted for just enough space to zero terminate
+	*olen = pos;		// Tell the caller how big we are
+	return(out);
 }

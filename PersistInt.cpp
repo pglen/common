@@ -17,17 +17,17 @@
                                                                              
    ======================================================================= */
 
-#include <stdafx.h>
+#include "stdafx.h"
 #include "PersistInt.h"
 #include "xPtrArr.h"
 
 #ifdef _DEBUG
 #undef THIS_FILE
-static TCHAR THIS_FILE[]=_T(__FILE__);
+//static TCHAR THIS_FILE[]=_T(__FILE__);
+static const char THIS_FILE[] = __FILE__;
 #define new DEBUG_NEW
 #endif
 
-#define DEBUG_NEW new
 
 CxPtrArr	*PersistInt::glob = NULL;
 

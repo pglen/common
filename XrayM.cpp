@@ -27,12 +27,11 @@
 #include "TextMode.h"
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
 #undef THIS_FILE
-static TCHAR THIS_FILE[] = _T(__FILE__);
+//static TCHAR THIS_FILE[] = _T(__FILE__);
+static const char THIS_FILE[] = __FILE__;
+#define new DEBUG_NEW
 #endif
-
-#define DEBUG_NEW new
 
 #define MAXMENUDEPTH 12
 
@@ -1265,9 +1264,16 @@ BOOL CXrayM::LoadMenu(LPCTSTR lpszResourceName, int skip)
 			{
 			if(seen_popup < sizeof(lastclass) / sizeof(void*))
 				{
+
+#ifdef _DEBUG
+//#define new new
+#endif
 				CXrayM *sm = new CXrayM; //ASSERT(sm);
 
-				//lastclass[seen_popup]->AppendSubMenu(wstr, sm, uFlags);	
+#ifdef _DEBUG
+//#define new DEBUG_NEW
+#endif
+										 //lastclass[seen_popup]->AppendSubMenu(wstr, sm, uFlags);	
 				lastclass[seen_popup]->AppendSubMenu(str, sm, uFlags);	
 				sm->mparent = lastclass[seen_popup];
 					{

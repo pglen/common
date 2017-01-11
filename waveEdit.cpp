@@ -30,15 +30,14 @@
 
 #include "FileDialogST.h"
 
-//#undef P2N
+#pragma warning(disable : 4302)
 
 #ifdef _DEBUG
-#define new DEBUG_NEW
 #undef THIS_FILE
-static TCHAR THIS_FILE[] = _T(__FILE__);
+//static TCHAR THIS_FILE[] = _T(__FILE__);
+static const char THIS_FILE[] = __FILE__;
+#define new DEBUG_NEW
 #endif
-
-#define DEBUG_NEW new
 
 #define IDR_MENU1                       145
 
